@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or "sqlite" if you switched
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id           String   @id @default(cuid())
+  name         String
+  currency     String
+  balanceCents BigInt   @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Back-relations for the two named relations from Transfer
+  debitTransfers  Transfer[] @relation("DebitTransfers")
+  creditTransfers Transfer[] @relation("CreditTransfers")
+
+  ledgerEntries LedgerEntry[]
+}
+
+model Transfer {
+  id              String   @id @default(cuid())
+  idempotencyKey  String   @unique
+  amountCents     BigInt
+  currency        String
+  debitAccountId  String
+  creditAccountId String
+  createdAt       DateTime @default(now())
+
+  // Two relations to Account MUST be named and MUST have opposites on Account
+  debitAccount  Account @relation("DebitTransfers", fields: [debitAccountId], references: [id])
+  creditAccount Account @relation("CreditTransfers", fields: [creditAccountId], references: [id])
+
+  ledgerEntries LedgerEntry[]
+}
+
+model LedgerEntry {
+  id         String   @id @default(cuid())
+  transferId String
+  accountId  String
+  deltaCents BigInt
+  createdAt  DateTime @default(now())
+
+  transfer Transfer @relation(fields: [transferId], references: [id])
+  account  Account  @relation(fields: [accountId], references: [id])
+
+  @@index([accountId])
+  @@index([transferId])
+}
